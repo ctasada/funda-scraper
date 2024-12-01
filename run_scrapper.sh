@@ -12,6 +12,7 @@ AREA=$1
 # Execute the command with the dynamic area
 poetry run python funda_scraper/scrape.py \
   --area "$AREA" \
+  --want_to buy \
   --max_price 650000 \
   --min_floor_area 125 \
   --min_rooms 3 \
