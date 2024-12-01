@@ -18,4 +18,5 @@ poetry run python funda_scraper/scrape.py \
   --property_type apartment,house \
   --construction_period from_1945_to_1959,from_1960_to_1970,from_1971_to_1980,from_1981_to_1990,from_1991_to_2000,from_2001_to_2010,from_2011_to_2020 \
   --n_pages 100 \
-  --raw_data
+  --raw_data \
+  --save
