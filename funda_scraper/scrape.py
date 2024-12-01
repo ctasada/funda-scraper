@@ -38,10 +38,12 @@ class FundaScraper(object):
         property_type: Optional[str] = None,
         min_floor_area: Optional[str] = None,
         max_floor_area: Optional[str] = None,
+        min_rooms: Optional[str] = None,
+        max_rooms: Optional[str] = None,
+        construction_period: Optional[str] = None,
         sort: Optional[str] = None,
     ):
         """
-
         :param area: The area to search for properties, formatted for URL compatibility.
         :param want_to: Specifies whether the user wants to buy or rent properties.
         :param page_start: The starting page number for the search.
@@ -53,6 +55,9 @@ class FundaScraper(object):
         :param property_type: The type of property to search for.
         :param min_floor_area: The minimum floor area for the property search.
         :param max_floor_area: The maximum floor area for the property search.
+        :param min_rooms: The minimum number of rooms for the property search.
+        :param max_rooms: The maximum number of rooms for the property search.
+        :param construction_period: The construction period for the property search.
         :param sort: The sorting criterion for the search results.
         """
         # Init attributes
@@ -68,6 +73,9 @@ class FundaScraper(object):
         self.days_since = days_since
         self.min_floor_area = min_floor_area
         self.max_floor_area = max_floor_area
+        self.min_rooms = min_rooms
+        self.max_rooms = max_rooms
+        self.construction_period = construction_period
         self.sort = sort
 
         # Instantiate along the way
@@ -89,6 +97,8 @@ class FundaScraper(object):
             f"days_since={self.days_since}, "
             f"min_floor_area={self.min_floor_area}, "
             f"max_floor_area={self.max_floor_area}, "
+            f"min_rooms={self.min_rooms}, "
+            f"max_rooms={self.max_rooms}, "
             f"find_past={self.find_past})"
             f"min_price={self.min_price})"
             f"max_price={self.max_price})"
@@ -168,6 +178,9 @@ class FundaScraper(object):
         days_since: Optional[int] = None,
         min_floor_area: Optional[str] = None,
         max_floor_area: Optional[str] = None,
+        min_rooms: Optional[str] = None,
+        max_rooms: Optional[str] = None,
+        construction_period: Optional[str] = None,
         sort: Optional[str] = None,
     ) -> None:
         """Resets or initializes the search parameters."""
@@ -193,6 +206,12 @@ class FundaScraper(object):
             self.min_floor_area = min_floor_area
         if max_floor_area is not None:
             self.max_floor_area = max_floor_area
+        if min_rooms is not None:
+            self.min_rooms = min_rooms
+        if max_rooms is not None:
+            self.max_rooms = max_rooms
+        if construction_period is not None:
+            self.construction_period = construction_period
         if sort is not None:
             self.sort = sort
 
@@ -203,18 +222,10 @@ class FundaScraper(object):
 
     @staticmethod
     def fix_link(link: str) -> str:
-        """Fixes a given property link to ensure proper URL formatting."""
-        link_url = urlparse(link)
-        link_path = link_url.path.split("/")
-        property_id = link_path.pop(5)
-        property_address = link_path.pop(4).split("-")
-        link_path = link_path[2:4]
-        property_address.insert(1, property_id)
-        link_path.extend(["-".join(property_address), "?old_ldp=true"])
-        fixed_link = urlunparse(
-            (link_url.scheme, link_url.netloc, "/".join(link_path), "", "", "")
-        )
-        return fixed_link
+        if not link.startswith("https://www.funda.nl/en"):
+            link = link.replace("https://www.funda.nl/", "https://www.funda.nl/en/")
+
+        return link
 
     def fetch_all_links(self, page_start: int = None, n_pages: int = None) -> None:
         """Collects all available property links across multiple pages."""
@@ -250,8 +261,14 @@ class FundaScraper(object):
         query = "koop" if self.to_buy else "huur"
 
         main_url = (
-            f"{self.base_url}/zoeken/{query}?selected_area=%5B%22{self.area}%22%5D"
+            f"{self.base_url}/zoeken/{query}?"
         )
+
+        areas = self.area.split(",")
+        formatted_areas = [
+            "%22" + area + "%22" for area in areas
+        ]
+        main_url += f"selected_area=%5B{','.join(formatted_areas)}%5D"
 
         if self.property_type:
             property_types = self.property_type.split(",")
@@ -276,21 +293,55 @@ class FundaScraper(object):
             max_floor_area = "" if self.max_floor_area is None else self.max_floor_area
             main_url = f"{main_url}&floor_area=%22{min_floor_area}-{max_floor_area}%22"
 
+        if self.min_rooms or self.max_rooms:
+            min_rooms = "" if self.min_rooms is None else self.min_rooms
+            max_rooms = "" if self.max_rooms is None else self.max_rooms
+            main_url = f"{main_url}&rooms=%22{min_rooms}-{max_rooms}%22"
+
         if self.sort is not None:
             main_url = f"{main_url}&sort=%22{self.check_sort}%22"
+
+        if self.construction_period:
+            construction_periods = self.construction_period.split(",")
+            formatted_construction_periods = [
+                "%22" + period + "%22" for period in construction_periods
+            ]
+            main_url += f"&construction_period=%5B{','.join(formatted_construction_periods)}%5D"
 
         logger.info(f"*** Main URL: {main_url} ***")
         return main_url
 
     @staticmethod
-    def get_value_from_css(soup: BeautifulSoup, selector: str) -> str:
-        """Extracts data from HTML using a CSS selector."""
-        result = soup.select(selector)
-        if len(result) > 0:
-            result = result[0].text
-        else:
+    def get_value_from_data(soup: BeautifulSoup, selector: str) -> str:
+        """Extracts data from HTML using the data structure."""
+        if selector == "":
+            return "na"
+
+        try:
+            result_element = soup.find("dt", string=selector).find_next("dd")
+            result = result_element.text.strip() if result_element else "na"
+        except AttributeError:
             result = "na"
         return result
+
+    @staticmethod
+    def get_address_value(soup: BeautifulSoup) -> dict:
+        """Extracts the address value from the HTML."""
+        div_element = soup.find('div', attrs={
+            'neighborhoodidentifier': True,
+        })
+
+        # Extract street address (first span)
+        street_address = div_element.find('span')
+
+        return {
+            "neighborhood_name": div_element.get('neighborhoodidentifier', 'na'),
+            "city": div_element.get('city', 'na'),
+            "zip_code": div_element.get('postcode', 'na'),
+            "housenumber": div_element.get('housenumber', 'na'),
+            "province": div_element.get('province', 'na'),
+            "address": street_address.text if street_address else "na",
+        }
 
     def scrape_one_link(self, link: str) -> List[str]:
         """Scrapes data from a single property link."""
@@ -299,68 +350,28 @@ class FundaScraper(object):
         response = requests.get(link, headers=config.header)
         soup = BeautifulSoup(response.text, "lxml")
 
-        # Get the value according to respective CSS selectors
-        if self.to_buy:
-            if self.find_past:
-                list_since_selector = self.selectors.date_list
-            else:
-                list_since_selector = self.selectors.listed_since
-        else:
-            if self.find_past:
-                list_since_selector = ".fd-align-items-center:nth-child(9) span"
-            else:
-                list_since_selector = ".fd-align-items-center:nth-child(7) span"
-
         result = [
             link,
-            self.get_value_from_css(soup, self.selectors.price),
-            self.get_value_from_css(soup, self.selectors.address),
-            self.get_value_from_css(soup, self.selectors.descrip),
-            self.get_value_from_css(soup, list_since_selector),
-            self.get_value_from_css(soup, self.selectors.zip_code),
-            self.get_value_from_css(soup, self.selectors.size),
-            self.get_value_from_css(soup, self.selectors.year),
-            self.get_value_from_css(soup, self.selectors.living_area),
-            self.get_value_from_css(soup, self.selectors.kind_of_house),
-            self.get_value_from_css(soup, self.selectors.building_type),
-            self.get_value_from_css(soup, self.selectors.num_of_rooms),
-            self.get_value_from_css(soup, self.selectors.num_of_bathrooms),
-            self.get_value_from_css(soup, self.selectors.layout),
-            self.get_value_from_css(soup, self.selectors.energy_label),
-            self.get_value_from_css(soup, self.selectors.insulation),
-            self.get_value_from_css(soup, self.selectors.heating),
-            self.get_value_from_css(soup, self.selectors.ownership),
-            self.get_value_from_css(soup, self.selectors.exteriors),
-            self.get_value_from_css(soup, self.selectors.parking),
-            self.get_value_from_css(soup, self.selectors.neighborhood_name),
-            self.get_value_from_css(soup, self.selectors.date_list),
-            self.get_value_from_css(soup, self.selectors.date_sold),
-            self.get_value_from_css(soup, self.selectors.term),
-            self.get_value_from_css(soup, self.selectors.price_sold),
-            self.get_value_from_css(soup, self.selectors.last_ask_price),
-            self.get_value_from_css(soup, self.selectors.last_ask_price_m2).split("\r")[
-                0
-            ],
+            self.get_value_from_data(soup, self.selectors.price).replace("kosten koper", "").strip(),
+            self.get_address_value(soup)['address'],
+            self.get_value_from_data(soup, self.selectors.descrip),
+            self.get_address_value(soup)['zip_code'],
+            self.get_value_from_data(soup, self.selectors.size),
+            self.get_value_from_data(soup, self.selectors.year),
+            self.get_value_from_data(soup, self.selectors.living_area),
+            self.get_value_from_data(soup, self.selectors.kind_of_house),
+            self.get_value_from_data(soup, self.selectors.building_type),
+            self.get_value_from_data(soup, self.selectors.num_of_rooms),
+            self.get_value_from_data(soup, self.selectors.num_of_bathrooms),
+            self.get_value_from_data(soup, self.selectors.energy_label).replace("What does this mean?", "").strip(),
+            self.get_value_from_data(soup, self.selectors.insulation),
+            self.get_value_from_data(soup, self.selectors.heating),
+            self.get_value_from_data(soup, self.selectors.ownership),
+            self.get_value_from_data(soup, self.selectors.parking),
+            self.get_address_value(soup)['city'],
+            self.get_address_value(soup)['neighborhood_name'],
         ]
 
-        # Deal with list_since_selector especially, since its CSS varies sometimes
-        if clean_date_format(result[4]) == "na":
-            for i in range(6, 16):
-                selector = f".fd-align-items-center:nth-child({i}) span"
-                update_list_since = self.get_value_from_css(soup, selector)
-                if clean_date_format(update_list_since) == "na":
-                    pass
-                else:
-                    result[4] = update_list_since
-
-        photos_list = [
-            p.get("data-lazy-srcset") for p in soup.select(self.selectors.photo)
-        ]
-        photos_string = ", ".join(photos_list)
-
-        # Clean up the retried result from one page
-        result = [r.replace("\n", "").replace("\r", "").strip() for r in result]
-        result.append(photos_string)
         return result
 
     def scrape_pages(self) -> None:
@@ -377,10 +388,7 @@ class FundaScraper(object):
         for i, c in enumerate(content):
             df.loc[len(df)] = c
 
-        df["city"] = df["url"].map(lambda x: x.split("/")[4])
         df["log_id"] = datetime.datetime.now().strftime("%Y%m-%d%H-%M%S")
-        if not self.find_past:
-            df = df.drop(["term", "price_sold", "date_sold"], axis=1)
         logger.info(f"*** All scraping done: {df.shape[0]} results ***")
         self.raw_df = df
 
@@ -456,6 +464,24 @@ if __name__ == "__main__":
         "--max_price", type=int, help="Specify the max price", default=None
     )
     parser.add_argument(
+        "--min_floor_area", type=int, help="Indicate the minimum floor area", default=None
+    )
+    parser.add_argument(
+        "--max_floor_area", type=int, help="Indicate the maximum floor area", default=None
+    )
+    parser.add_argument(
+        "--min_rooms", type=int, help="Indicate the minimum number of rooms", default=None
+    )
+    parser.add_argument(
+        "--max_rooms", type=int, help="Indicate the maximum number of rooms", default=None
+    )
+    parser.add_argument(
+        "--construction_period", type=str, help="Specify the desired construction periods", default=None
+    )
+    parser.add_argument(
+        "--property_type", type=str, help="Specify the desired property type(s)", default=None
+    )
+    parser.add_argument(
         "--days_since",
         type=int,
         help="Specify the days since publication",
@@ -499,6 +525,12 @@ if __name__ == "__main__":
         min_price=args.min_price,
         max_price=args.max_price,
         days_since=args.days_since,
+        min_floor_area=args.min_floor_area,
+        max_floor_area=args.max_floor_area,
+        min_rooms=args.min_rooms,
+        max_rooms=args.max_rooms,
+        construction_period=args.construction_period,
+        property_type=args.property_type,
         sort=args.sort,
     )
     df = scraper.run(raw_data=args.raw_data, save=args.save)
