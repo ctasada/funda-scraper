@@ -354,7 +354,6 @@ class FundaScraper(object):
             link,
             self.get_value_from_data(soup, self.selectors.price).replace("kosten koper", "").strip(),
             self.get_address_value(soup)['address'],
-            self.get_value_from_data(soup, self.selectors.descrip),
             self.get_address_value(soup)['zip_code'],
             self.get_value_from_data(soup, self.selectors.size),
             self.get_value_from_data(soup, self.selectors.year),
@@ -388,7 +387,6 @@ class FundaScraper(object):
         for i, c in enumerate(content):
             df.loc[len(df)] = c
 
-        df["log_id"] = datetime.datetime.now().strftime("%Y%m-%d%H-%M%S")
         logger.info(f"*** All scraping done: {df.shape[0]} results ***")
         self.raw_df = df
 

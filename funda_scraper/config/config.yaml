@@ -33,7 +33,6 @@ css_selector:
   url: none
   price: "Asking price"
   address: ""
-  descrip: ""
   zip_code: ""
   size: "Plot size"
   year: "Year of construction"
