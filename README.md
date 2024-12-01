@@ -102,3 +102,10 @@ To fetch the data without preprocessing, specify `scraper.run(raw_data=True)`.
 
 Check the  [example notebook](https://colab.research.google.com/drive/1hNzJJRWxD59lrbeDpfY1OUpBz0NktmfW?usp=sharing) for further details. If you find this project helpful, please give it a [star](https://github.com/whchien/funda-scraper).
 
+## Install
+
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+poetry env use 3.13
+poetry update
+poetry install
