@@ -20,3 +20,5 @@ poetry run python funda_scraper/scrape.py \
   --n_pages 100 \
   --raw_data \
   --save
+
+open ./data
