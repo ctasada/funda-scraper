@@ -364,7 +364,7 @@ class FundaScraper(object):
             self.get_value_from_data(soup, self.selectors.price).replace("kosten koper", "").strip(),
             self.get_address_value(soup)['address'],
             self.get_address_value(soup)['zip_code'],
-            self.get_value_from_data(soup, self.selectors.size).replace("m²", "").strip(),
+            self.get_value_from_data(soup, self.selectors.plot_size).replace("m²", "").strip(),
             self.get_value_from_data(soup, self.selectors.year),
             self.get_value_from_data(soup, self.selectors.living_area).replace("m²", "").strip(),
             self.get_value_from_data(soup, self.selectors.kind_of_house),

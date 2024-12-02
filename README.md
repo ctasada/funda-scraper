@@ -104,6 +104,8 @@ Check the  [example notebook](https://colab.research.google.com/drive/1hNzJJRWxD
 
 ## Install
 
+git clone https://github.com/ctasada/funda-scraper.git
+
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 poetry env use 3.13

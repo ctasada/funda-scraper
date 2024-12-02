@@ -34,7 +34,7 @@ css_selector:
   price: "Asking price"
   address: ""
   zip_code: ""
-  size: "Plot size"
+  plot_size: "Plot size"
   year: "Year of construction"
   living_area: "Living area"
   kind_of_house: 
