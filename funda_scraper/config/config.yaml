@@ -37,7 +37,9 @@ css_selector:
   size: "Plot size"
   year: "Year of construction"
   living_area: "Living area"
-  kind_of_house: "Kind of house"
+  kind_of_house: 
+    - "Kind of house"
+    - "Type apartment"
   building_type: "Building type"
   num_of_rooms: "Number of rooms"
   num_of_bathrooms: "Number of bath rooms"

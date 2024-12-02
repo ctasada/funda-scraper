@@ -6,6 +6,7 @@ import json
 import multiprocessing as mp
 import os
 from collections import OrderedDict
+import time
 from typing import List, Optional
 from urllib.parse import urlparse, urlunparse
 
@@ -44,7 +45,7 @@ class FundaScraper(object):
         sort: Optional[str] = None,
     ):
         """
-        :param area: The area to search for properties, formatted for URL compatibility.
+        :param area: The area to search for properties, this can be a comma-seperated list, formatted for URL compatibility.
         :param want_to: Specifies whether the user wants to buy or rent properties.
         :param page_start: The starting page number for the search.
         :param n_pages: The number of pages to scrape.
@@ -61,7 +62,7 @@ class FundaScraper(object):
         :param sort: The sorting criterion for the search results.
         """
         # Init attributes
-        self.area = area.lower().replace(" ", "-")
+        self.area = area.lower().replace(" ", "-").replace(",","\",\"") #added functionality to add multiple cities, seperated by ', '
         self.property_type = property_type
         self.want_to = want_to
         self.find_past = find_past
@@ -139,7 +140,8 @@ class FundaScraper(object):
             "price_down",
             "floor_area_down",
             "plot_area_down",
-            "city_up" "postal_code_up",
+            "city_up",
+            "postal_code_up",
         ]:
             return self.sort
         else:
@@ -243,6 +245,7 @@ class FundaScraper(object):
                     f"{main_url}&search_result={i}"
                 )
                 urls += item_list
+                time.sleep(.2) # short sleep to reduce the chance of getting locked out of Funda
             except IndexError:
                 self.page_end = i
                 logger.info(f"*** The last available page is {self.page_end} ***")
@@ -316,11 +319,18 @@ class FundaScraper(object):
         if selector == "":
             return "na"
 
-        try:
-            result_element = soup.find("dt", string=selector).find_next("dd")
-            result = result_element.text.strip() if result_element else "na"
-        except AttributeError:
-            result = "na"
+        if type(selector) != list:
+            selector = [selector]
+
+        for s in selector:
+            try:
+                result_element = soup.find("dt", string=s).find_next("dd")
+                result = result_element.text.strip() if result_element else "na"
+                if result != "na":
+                    break
+            except AttributeError:
+                result = "na"
+
         return result
 
     @staticmethod
